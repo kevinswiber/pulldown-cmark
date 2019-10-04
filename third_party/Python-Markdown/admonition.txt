@@ -1,9 +1,26 @@
 ```````````````````````````````` example
-!!! note
-A normal paragraph here
+!!!note
+A normal paragraph here.
 !!!
 .
-<aside class="admonition note"><p>A normal paragraph here</p></aside>
+<aside class="admonition note"><p>A normal paragraph here.</p></aside>
+````````````````````````````````
+```````````````````````````````` example
+!!!abstract
+Line one.
+Line two.
+!!!
+.
+<aside class="admonition abstract"><p>Line one. Line two.</p></aside>
+````````````````````````````````
+```````````````````````````````` example
+!!!abstract
+Line one.
+
+Line two.
+!!!
+.
+<aside class="admonition abstract"><p>Line one.</p> <p>Line two.</p></aside>
 ````````````````````````````````
 Some text
 

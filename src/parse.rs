@@ -1065,6 +1065,7 @@ impl<'a> FirstPass<'a> {
             body: ItemBody::AdmonitionBlock(self.allocs.allocate_cow(info_string)),
         });
         self.tree.push();
+
         loop {
             let mut line_start = LineStart::new(&bytes[ix..]);
             let n_containers = self.scan_containers(&mut line_start);
@@ -1083,10 +1084,11 @@ impl<'a> FirstPass<'a> {
             }
             let remaining_space = line_start.remaining_space();
             ix += line_start.bytes_scanned();
-            let next_ix = ix + scan_nextline(&bytes[ix..]);
-            self.append_admonition_text(remaining_space, ix);
-            ix = next_ix;
+            let _next_ix = ix + scan_nextline(&bytes[ix..]);
+            ix = self.append_admonition_text(remaining_space, ix);
+            //ix = next_ix;
         }
+        
 
         self.pop(ix);
 
@@ -1094,7 +1096,7 @@ impl<'a> FirstPass<'a> {
         ix + scan_blank_line(&bytes[ix..]).unwrap_or(0)
     }
 
-    fn append_admonition_text(&mut self, remaining_space: usize, start: usize) {
+    fn append_admonition_text(&mut self, remaining_space: usize, start: usize) -> usize {
         if remaining_space > 0 {
             let cow_ix = self.allocs.allocate_cow("   "[..remaining_space].into());
             self.tree.append(Item {
@@ -1104,14 +1106,17 @@ impl<'a> FirstPass<'a> {
             });
         }
 
-        self.parse_paragraph(start);
-        /*if self.text.as_bytes()[end - 2] == b'\r' {
+        self.parse_block(start)
+
+/*
+        if self.text.as_bytes()[end - 2] == b'\r' {
             // Normalize CRLF to LF
             self.tree.append_text(start, end - 2);
             self.tree.append_text(end - 1, end);
         } else {
             self.tree.append_text(start, end);
-        }*/
+        }
+        */
     }
 
     fn append_code_text(&mut self, remaining_space: usize, start: usize, end: usize) {
