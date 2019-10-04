@@ -32,6 +32,7 @@ fn generate_tests_from_spec() {
         "./third_party/GitHub/gfm_table.txt",
         "./third_party/GitHub/gfm_strikethrough.txt",
         "./third_party/GitHub/gfm_tasklist.txt",
+        "./third_party/Python-Markdown/admonition.txt",
     ];
     let hardcoded_iter = hardcoded.into_iter().map(PathBuf::from);
 

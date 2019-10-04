@@ -263,6 +263,19 @@ where
                     self.write("\">")
                 }
             }
+            Tag::AdmonitionBlock(info) => {
+                if !self.end_newline {
+                    self.write_newline()?;
+                }
+                let admonition_type = info.split(' ').next().unwrap();
+                if admonition_type.is_empty() {
+                    self.write("<aside class=\"admonition\">")
+                } else {
+                    self.write("<aside class=\"admonition ")?;
+                    escape_html(&mut self.writer, admonition_type)?;
+                    self.write("\">")
+                }
+            }
             Tag::List(Some(1)) => {
                 if self.end_newline {
                     self.write("<ol>\n")
@@ -379,6 +392,9 @@ where
             }
             Tag::CodeBlock(_) => {
                 self.write("</code></pre>\n")?;
+            }
+            Tag::AdmonitionBlock(_) => {
+                self.write("</aside>\n")?;
             }
             Tag::List(Some(_)) => {
                 self.write("</ol>\n")?;

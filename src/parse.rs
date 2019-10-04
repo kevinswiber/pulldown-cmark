@@ -40,6 +40,7 @@ pub enum Tag<'a> {
     /// A heading. The field indicates the level of the heading.
     Header(i32),
 
+    AdmonitionBlock(CowStr<'a>),
     BlockQuote,
     CodeBlock(CowStr<'a>),
 
@@ -130,6 +131,7 @@ bitflags! {
         const ENABLE_FOOTNOTES = 1 << 2;
         const ENABLE_STRIKETHROUGH = 1 << 3;
         const ENABLE_TASKLISTS = 1 << 4;
+        const ENABLE_ADMONITIONS = 1 << 5;
     }
 }
 
@@ -171,6 +173,7 @@ enum ItemBody {
     Rule,
     Header(i32), // header level
     FencedCodeBlock(CowIndex),
+    AdmonitionBlock(CowIndex),
     IndentCodeBlock,
     HtmlBlock(Option<u32>), // end tag, or none for type 6
     Html,
@@ -405,6 +408,11 @@ impl<'a> FirstPass<'a> {
         if let Some((n, fence_ch)) = scan_code_fence(&bytes[ix..]) {
             return self.parse_fenced_code_block(ix, indent, fence_ch, n);
         }
+
+        if let Some((n, admonition_ch)) = scan_admonition(&bytes[ix..]) {
+            return self.parse_admonition_block(ix, indent, admonition_ch, n);
+        }
+
         self.parse_paragraph(ix)
     }
 
@@ -1036,6 +1044,76 @@ impl<'a> FirstPass<'a> {
         ix + scan_blank_line(&bytes[ix..]).unwrap_or(0)
     }
 
+    fn parse_admonition_block(
+        &mut self,
+        start_ix: usize,
+        indent: usize,
+        admonition_ch: u8,
+        n_admonition_char: usize,
+    ) -> usize {
+        let bytes = self.text.as_bytes();
+        let mut info_start = start_ix + n_admonition_char;
+        info_start += scan_whitespace_no_nl(&bytes[info_start..]);
+        // TODO: info strings are typically very short. wouldnt it be faster
+        // to just do a forward scan here?
+        let mut ix = info_start + scan_nextline(&bytes[info_start..]);
+        let info_end = ix - scan_rev_while(&bytes[info_start..ix], is_ascii_whitespace);
+        let info_string = unescape(&self.text[info_start..info_end]);
+        self.tree.append(Item {
+            start: start_ix,
+            end: 0, // will get set later
+            body: ItemBody::AdmonitionBlock(self.allocs.allocate_cow(info_string)),
+        });
+        self.tree.push();
+        loop {
+            let mut line_start = LineStart::new(&bytes[ix..]);
+            let n_containers = self.scan_containers(&mut line_start);
+            if n_containers < self.tree.spine_len() {
+                break;
+            }
+            line_start.scan_space(indent);
+            let mut close_line_start = line_start.clone();
+            if !close_line_start.scan_space(4) {
+                let close_ix = ix + close_line_start.bytes_scanned();
+                if let Some(n) = scan_closing_admonition(&bytes[close_ix..], admonition_ch, n_admonition_char)
+                {
+                    ix = close_ix + n;
+                    break;
+                }
+            }
+            let remaining_space = line_start.remaining_space();
+            ix += line_start.bytes_scanned();
+            let next_ix = ix + scan_nextline(&bytes[ix..]);
+            self.append_admonition_text(remaining_space, ix);
+            ix = next_ix;
+        }
+
+        self.pop(ix);
+
+        // try to read trailing whitespace or it will register as a completely blank line
+        ix + scan_blank_line(&bytes[ix..]).unwrap_or(0)
+    }
+
+    fn append_admonition_text(&mut self, remaining_space: usize, start: usize) {
+        if remaining_space > 0 {
+            let cow_ix = self.allocs.allocate_cow("   "[..remaining_space].into());
+            self.tree.append(Item {
+                start,
+                end: start,
+                body: ItemBody::SynthesizeText(cow_ix),
+            });
+        }
+
+        self.parse_paragraph(start);
+        /*if self.text.as_bytes()[end - 2] == b'\r' {
+            // Normalize CRLF to LF
+            self.tree.append_text(start, end - 2);
+            self.tree.append_text(end - 1, end);
+        } else {
+            self.tree.append_text(start, end);
+        }*/
+    }
+
     fn append_code_text(&mut self, remaining_space: usize, start: usize, end: usize) {
         if remaining_space > 0 {
             let cow_ix = self.allocs.allocate_cow("   "[..remaining_space].into());
@@ -1450,6 +1528,7 @@ fn scan_paragraph_interrupt(bytes: &[u8]) -> bool {
         || scan_hrule(bytes).is_ok()
         || scan_atx_heading(bytes).is_some()
         || scan_code_fence(bytes).is_some()
+        || scan_admonition(bytes).is_some()
         || scan_blockquote_start(bytes).is_some()
     {
         return true;
@@ -2473,6 +2552,7 @@ fn item_to_tag<'a>(item: &Item, allocs: &Allocations<'a>) -> Tag<'a> {
         ItemBody::Rule => Tag::Rule,
         ItemBody::Header(level) => Tag::Header(level),
         ItemBody::FencedCodeBlock(cow_ix) => Tag::CodeBlock(allocs[cow_ix].clone()),
+        ItemBody::AdmonitionBlock(cow_ix) => Tag::AdmonitionBlock(allocs[cow_ix].clone()),
         ItemBody::IndentCodeBlock => Tag::CodeBlock("".into()),
         ItemBody::BlockQuote => Tag::BlockQuote,
         ItemBody::List(_, c, listitem_start) => {
@@ -2521,6 +2601,7 @@ fn item_to_event<'a>(item: Item, text: &'a str, allocs: &Allocations<'a>) -> Eve
         }
         ItemBody::Rule => Tag::Rule,
         ItemBody::Header(level) => Tag::Header(level),
+        ItemBody::AdmonitionBlock(cow_ix) => Tag::AdmonitionBlock(allocs[cow_ix].clone()),
         ItemBody::FencedCodeBlock(cow_ix) => Tag::CodeBlock(allocs[cow_ix].clone()),
         ItemBody::IndentCodeBlock => Tag::CodeBlock("".into()),
         ItemBody::BlockQuote => Tag::BlockQuote,

@@ -453,6 +453,25 @@ pub(crate) fn scan_closing_code_fence(
     scan_eol(&bytes[i..]).map(|_| i)
 }
 
+pub(crate) fn scan_closing_admonition(
+    bytes: &[u8],
+    admonition_char: u8,
+    n_admonition_char: usize,
+) -> Option<usize> {
+    if bytes.is_empty() {
+        return Some(0);
+    }
+    let mut i = 0;
+    let num_admonition_chars_found = scan_ch_repeat(&bytes[i..], admonition_char);
+    if num_admonition_chars_found < n_admonition_char {
+        return None;
+    }
+    i += num_admonition_chars_found;
+    let num_trailing_spaces = scan_ch_repeat(&bytes[i..], b' ');
+    i += num_trailing_spaces;
+    scan_eol(&bytes[i..]).map(|_| i)
+}
+
 // returned pair is (number of bytes, number of spaces)
 fn calc_indent(text: &[u8], max: usize) -> (usize, usize) {
     let mut spaces = 0;
@@ -614,6 +633,27 @@ pub(crate) fn scan_code_fence(data: &[u8]) -> Option<(usize, u8)> {
             let next_line = i + scan_nextline(suffix);
             // FIXME: make sure this is correct
             if suffix[..(next_line - i)].iter().any(|&b| b == b'`') {
+                return None;
+            }
+        }
+        Some((i, c))
+    } else {
+        None
+    }
+}
+
+pub(crate) fn scan_admonition(data: &[u8]) -> Option<(usize, u8)> {
+    let c = *data.get(0)?;
+    if c != b'!' {
+        return None;
+    }
+
+    let i = 1 + scan_ch_repeat(&data[1..], c);
+    if i >= 3 {
+        if c == b'!' {
+            let suffix = &data[i..];
+            let next_line = i + scan_nextline(suffix);
+            if suffix[..(next_line - i)].iter().any(|&b| b == b'!') {
                 return None;
             }
         }
