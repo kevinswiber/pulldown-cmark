@@ -222,6 +222,7 @@ pub fn main() {
     opts.optflag("e", "events", "print event sequence instead of rendering");
     opts.optflag("T", "enable-tables", "enable GitHub-style tables");
     opts.optflag("F", "enable-footnotes", "enable Hoedown-style footnotes");
+    opts.optflag("A", "enable-admonitions", "enable block-style admonitions");
     opts.optflag(
         "S",
         "enable-strikethrough",
@@ -248,7 +249,7 @@ pub fn main() {
     if matches.opt_present("enable-footnotes") {
         opts.insert(Options::ENABLE_FOOTNOTES);
     }
-    if matches.opt_present("enable_admonitions") {
+    if matches.opt_present("enable-admonitions") {
         opts.insert(Options::ENABLE_ADMONITIONS);
     }
     if matches.opt_present("enable-strikethrough") {
