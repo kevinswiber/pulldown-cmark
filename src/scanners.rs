@@ -455,15 +455,13 @@ pub(crate) fn scan_closing_code_fence(
 
 pub(crate) fn scan_closing_admonition(
     bytes: &[u8],
-    admonition_char: u8,
-    n_admonition_char: usize,
 ) -> Option<usize> {
     if bytes.is_empty() {
         return Some(0);
     }
     let mut i = 0;
-    let num_admonition_chars_found = scan_ch_repeat(&bytes[i..], admonition_char);
-    if num_admonition_chars_found < n_admonition_char {
+    let num_admonition_chars_found = scan_ch_repeat(&bytes[i..], b'!');
+    if num_admonition_chars_found < 3 {
         return None;
     }
     i += num_admonition_chars_found;
@@ -642,7 +640,7 @@ pub(crate) fn scan_code_fence(data: &[u8]) -> Option<(usize, u8)> {
     }
 }
 
-pub(crate) fn scan_admonition(data: &[u8]) -> Option<(usize, u8)> {
+pub(crate) fn scan_admonition(data: &[u8]) -> Option<usize> {
     let c = *data.get(0)?;
     if c != b'!' {
         return None;
@@ -657,7 +655,7 @@ pub(crate) fn scan_admonition(data: &[u8]) -> Option<(usize, u8)> {
                 return None;
             }
         }
-        Some((i, c))
+        Some(i)
     } else {
         None
     }

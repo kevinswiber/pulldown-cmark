@@ -300,6 +300,26 @@ impl<'a> FirstPass<'a> {
             }
         }
 
+        if self.options.contains(Options::ENABLE_ADMONITIONS) {
+            // finish admonition if it's still open and was preceded by !!!
+            if let Some(node_ix) = self.tree.peek_up() {
+                if let ItemBody::AdmonitionBlock(..) = self.tree[node_ix].item.body {
+                    if let Some(n_admonition_chars) = scan_closing_admonition(&bytes[start_ix..]) {
+                        self.pop(n_admonition_chars);
+                        start_ix += line_start.bytes_scanned() + n_admonition_chars;
+                        line_start = LineStart::new(&bytes[start_ix..]);
+                    }
+                }
+            }
+
+            let container_start = start_ix + line_start.bytes_scanned();
+            if let Some(bytecount) = self.parse_admonition_block(container_start) {
+                start_ix = container_start + bytecount;
+                start_ix += scan_blank_line(&bytes[start_ix..]).unwrap_or(0);
+                line_start = LineStart::new(&bytes[start_ix..]);
+            }
+        }
+
         // Process new containers
         loop {
             let container_start = start_ix + line_start.bytes_scanned();
@@ -407,10 +427,6 @@ impl<'a> FirstPass<'a> {
 
         if let Some((n, fence_ch)) = scan_code_fence(&bytes[ix..]) {
             return self.parse_fenced_code_block(ix, indent, fence_ch, n);
-        }
-
-        if let Some((n, admonition_ch)) = scan_admonition(&bytes[ix..]) {
-            return self.parse_admonition_block(ix, indent, admonition_ch, n);
         }
 
         self.parse_paragraph(ix)
@@ -1046,75 +1062,28 @@ impl<'a> FirstPass<'a> {
 
     fn parse_admonition_block(
         &mut self,
-        start_ix: usize,
-        indent: usize,
-        admonition_ch: u8,
-        n_admonition_char: usize,
-    ) -> usize {
+        start: usize,
+    ) -> Option<usize> {
         let bytes = self.text.as_bytes();
-        let mut info_start = start_ix + n_admonition_char;
-        info_start += scan_whitespace_no_nl(&bytes[info_start..]);
-        // TODO: info strings are typically very short. wouldnt it be faster
-        // to just do a forward scan here?
-        let mut ix = info_start + scan_nextline(&bytes[info_start..]);
-        let info_end = ix - scan_rev_while(&bytes[info_start..ix], is_ascii_whitespace);
-        let info_string = unescape(&self.text[info_start..info_end]);
-        self.tree.append(Item {
-            start: start_ix,
-            end: 0, // will get set later
-            body: ItemBody::AdmonitionBlock(self.allocs.allocate_cow(info_string)),
-        });
-        self.tree.push();
-
-        loop {
-            let mut line_start = LineStart::new(&bytes[ix..]);
-            let n_containers = self.scan_containers(&mut line_start);
-            if n_containers < self.tree.spine_len() {
-                break;
-            }
-            line_start.scan_space(indent);
-            let mut close_line_start = line_start.clone();
-            if !close_line_start.scan_space(4) {
-                let close_ix = ix + close_line_start.bytes_scanned();
-                if let Some(n) = scan_closing_admonition(&bytes[close_ix..], admonition_ch, n_admonition_char)
-                {
-                    ix = close_ix + n;
-                    break;
-                }
-            }
-            let remaining_space = line_start.remaining_space();
-            ix += line_start.bytes_scanned();
-            ix = self.append_admonition_text(remaining_space, ix);
-        }
-        
-
-        self.pop(ix);
-
-        // try to read trailing whitespace or it will register as a completely blank line
-        ix + scan_blank_line(&bytes[ix..]).unwrap_or(0)
-    }
-
-    fn append_admonition_text(&mut self, remaining_space: usize, start: usize) -> usize {
-        if remaining_space > 0 {
-            let cow_ix = self.allocs.allocate_cow("   "[..remaining_space].into());
+        if let Some(n_admonition_char) = scan_admonition(&bytes[start..]) {
+            let mut info_start = start + n_admonition_char;
+            info_start += scan_whitespace_no_nl(&bytes[info_start..]);
+            // TODO: info strings are typically very short. wouldnt it be faster
+            // to just do a forward scan here?
+            let mut ix = info_start + scan_nextline(&bytes[info_start..]);
+            let info_end = ix - scan_rev_while(&bytes[info_start..ix], is_ascii_whitespace);
+            let info_string = unescape(&self.text[info_start..info_end]);
             self.tree.append(Item {
-                start,
-                end: start,
-                body: ItemBody::SynthesizeText(cow_ix),
+                start: start,
+                end: 0, // will get set later
+                body: ItemBody::AdmonitionBlock(self.allocs.allocate_cow(info_string)),
             });
-        }
-
-        self.parse_block(start)
-
-/*
-        if self.text.as_bytes()[end - 2] == b'\r' {
-            // Normalize CRLF to LF
-            self.tree.append_text(start, end - 2);
-            self.tree.append_text(end - 1, end);
+            self.tree.push();
+            ix += scan_blank_line(&bytes[ix..]).unwrap_or(0);
+            Some(ix - start)
         } else {
-            self.tree.append_text(start, end);
+            None
         }
-        */
     }
 
     fn append_code_text(&mut self, remaining_space: usize, start: usize, end: usize) {

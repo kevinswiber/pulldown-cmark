@@ -248,6 +248,9 @@ pub fn main() {
     if matches.opt_present("enable-footnotes") {
         opts.insert(Options::ENABLE_FOOTNOTES);
     }
+    if matches.opt_present("enable_admonitions") {
+        opts.insert(Options::ENABLE_ADMONITIONS);
+    }
     if matches.opt_present("enable-strikethrough") {
         opts.insert(Options::ENABLE_STRIKETHROUGH);
     }
