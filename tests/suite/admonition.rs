@@ -5,7 +5,7 @@ use super::test_markdown_html;
 
 #[test]
 fn admonition_test_1() {
-    let original = r##"!!!note
+    let original = r##"!!! note "The title"
 A normal paragraph here.
 !!!
 "##;
@@ -17,7 +17,7 @@ A normal paragraph here.
 
 #[test]
 fn admonition_test_2() {
-    let original = r##"!!!abstract
+    let original = r##"!!! abstract
 Line one.
 Line two.
 !!!
@@ -37,6 +37,20 @@ Line two.
 !!!
 "##;
     let expected = r##"<aside class="admonition abstract"><p>Line one.</p> <p>Line two.</p></aside>
+"##;
+
+    test_markdown_html(original, expected);
+}
+
+#[test]
+fn admonition_test_4() {
+    let original = r##"!!!tip
+# Header
+
+Text.
+!!!
+"##;
+    let expected = r##"<aside class="admonition tip"><h1>Header</h1> <p>Text.</p></aside>
 "##;
 
     test_markdown_html(original, expected);

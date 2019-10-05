@@ -1084,9 +1084,7 @@ impl<'a> FirstPass<'a> {
             }
             let remaining_space = line_start.remaining_space();
             ix += line_start.bytes_scanned();
-            let _next_ix = ix + scan_nextline(&bytes[ix..]);
             ix = self.append_admonition_text(remaining_space, ix);
-            //ix = next_ix;
         }
         
 

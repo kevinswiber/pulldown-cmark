@@ -1,12 +1,12 @@
 ```````````````````````````````` example
-!!!note
+!!! note "The title"
 A normal paragraph here.
 !!!
 .
 <aside class="admonition note"><p>A normal paragraph here.</p></aside>
 ````````````````````````````````
 ```````````````````````````````` example
-!!!abstract
+!!! abstract
 Line one.
 Line two.
 !!!
@@ -21,6 +21,15 @@ Line two.
 !!!
 .
 <aside class="admonition abstract"><p>Line one.</p> <p>Line two.</p></aside>
+````````````````````````````````
+```````````````````````````````` example
+!!!tip
+# Header
+
+Text.
+!!!
+.
+<aside class="admonition tip"><h1>Header</h1> <p>Text.</p></aside>
 ````````````````````````````````
 Some text
 
